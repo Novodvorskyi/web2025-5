@@ -1,0 +1,22 @@
+{
+  "name": "web2025-5",
+  "version": "1.0.0",
+  "description": "Кешуючий проксі-сервер для збереження картинок HTTP-кодів",
+  "main": "proxy.js",
+  "scripts": {
+    "start": "node proxy.js --host=localhost --port=3000 --cache=./cache",
+    "dev": "nodemon proxy.js --host=localhost --port=3000 --cache=./cache"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "commander": "^13.1.0",
+    "fs-extra": "^11.3.0",
+    "superagent": "^10.2.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
+
