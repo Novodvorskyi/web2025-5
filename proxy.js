@@ -1,40 +1,70 @@
 const http = require("http");
-const { program } = require("commander");
-const fs = require("fs").promises;
+const fs = require("fs"); // Використовуємо стандартний fs
 const path = require("path");
+const { program } = require("commander");
 
 program
-  .requiredOption("-h, --host <host>", "адреса сервера")
-  .requiredOption("-p, --port <port>", "порт сервера")
-  .requiredOption("-c, --cache <path>", "шлях до кешу");
+  .requiredOption("-h, --host <host>", "Server host")
+  .requiredOption("-p, --port <port>", "Server port")
+  .requiredOption("-c, --cache <cache>", "Cache directory")
+  .parse(process.argv);
 
-program.parse(process.argv);
-const options = program.opts();
-const cacheDir = options.cache;
+const { host, port, cache } = program.opts();
 
-const server = http.createServer(async (req, res) => {
+// Функція для отримання шляху до файлу
+const getCachePath = (statusCode) => path.join(cache, `${statusCode}.jpg`);
+
+const server = http.createServer((req, res) => {
+  const statusCode = req.url.substring(1);
+
+  // PUT: записати файл у кеш
   if (req.method === "PUT") {
-    const code = req.url.slice(1); // Видаляємо "/"
-    const filePath = path.join(cacheDir, `${code}.jpg`);
+    const cachePath = getCachePath(statusCode);
+    const fileStream = fs.createWriteStream(cachePath); // Тут тепер все правильно
+    req.pipe(fileStream);
+    fileStream.on("finish", () => {
+      res.statusCode = 201;
+      res.end("Image saved successfully.");
+    });
+  }
 
-    let data = [];
-    req.on("data", (chunk) => data.push(chunk));
-    req.on("end", async () => {
-      try {
-        await fs.writeFile(filePath, Buffer.concat(data));
-        res.writeHead(201, { "Content-Type": "text/plain" });
-        res.end("Файл збережено!");
-      } catch (error) {
-        res.writeHead(500, { "Content-Type": "text/plain" });
-        res.end("Помилка збереження файлу!");
+  // GET: отримати файл із кешу
+  else if (req.method === "GET") {
+    const cachePath = getCachePath(statusCode);
+    fs.readFile(cachePath, (err, data) => {
+      if (err) {
+        res.statusCode = 404;
+        res.end("Image not found.");
+      } else {
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "image/jpeg");
+        res.end(data);
       }
     });
-  } else {
-    res.writeHead(405, { "Content-Type": "text/plain" });
-    res.end("Метод не дозволено!");
+  }
+
+  // DELETE: видалити файл із кешу
+  else if (req.method === "DELETE") {
+    const cachePath = getCachePath(statusCode);
+    fs.unlink(cachePath, (err) => {
+      if (err) {
+        res.statusCode = 404;
+        res.end("Image not found.");
+      } else {
+        res.statusCode = 200;
+        res.end("Image deleted successfully.");
+      }
+    });
+  }
+
+  // Інші методи - 405 Method Not Allowed
+  else {
+    res.statusCode = 405;
+    res.end("Method Not Allowed");
   }
 });
 
-server.listen(options.port, options.host, () => {
-  console.log(`Сервер запущено на http://${options.host}:${options.port}`);
+// Запуск сервера
+server.listen(port, host, () => {
+  console.log(`Server running at http://${host}:${port}`);
 });
